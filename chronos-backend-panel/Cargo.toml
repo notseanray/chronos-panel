@@ -9,7 +9,6 @@ edition = "2021"
 actix-web = { version = "4.3.1"}
 actix-web-httpauth = "0.8.0"
 derive_more = "0.99.17"
-dotenv = "0.1.0"
 env_logger = "0.10.0"
 envy = "0.4.2"
 form_urlencoded = "1.2.0"

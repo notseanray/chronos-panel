@@ -1,4 +1,4 @@
 
 <main>
 </main>
-<div class="text-xl">Screen Sessions</div>
+<div class="text-xl">Server Information</div>

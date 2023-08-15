@@ -2,6 +2,7 @@ use actix_web::get;
 use actix_web::middleware::Logger;
 use actix_web::web::{scope, Query};
 use actix_web::{App, HttpResponse, HttpServer, Responder};
+use std::process::Command;
 use std::str::FromStr;
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -18,6 +19,9 @@ async fn hello() -> impl Responder {
     HttpResponse::Ok().body("Hello world!")
 }
 
+static DISCORD_CLIENT_ID: &str = "1137543889222389780";
+static COMPUTED_REDIRECT_URI: &str = "http://localhost:8080/api/callback";
+static DISCORD_CLIENT_SECRET: &str = "vKiBGSNaZiy2SH8RjjUx_WRtqdN-y0TL";
 
 static SYSTEM: OnceLock<Arc<RwLock<System>>> = OnceLock::new();
 
@@ -206,7 +210,36 @@ impl ServerInformation {
 
 #[derive(Serialize)]
 struct Session {
+    id: u32,
     name: String,
+    creation: String,
+    attached: bool,
+}
+
+impl Session {
+    fn get_sessions() -> Result<Option<Vec<Self>>, Box<dyn Error>> {
+        let data = String::from_utf8(Command::new("screen").arg("-ls").output()?.stdout)?;
+        let mut sessions = Vec::new();
+        for (i, line) in data.lines().enumerate() {
+            if i == 0 || line.is_empty() {
+                continue;
+            }
+            let session: Vec<&str> = line.split('.').collect();
+            if let (Some(id), Some(rest)) = (session.first(), session.last()) {
+                let rest: Vec<String> = rest.split('(').map(|x| x.replace(')', "").trim().to_string()).collect();
+                if rest.len() != 3 {
+                    continue;
+                }
+                sessions.push(Self {
+                    id: id.parse::<u32>().unwrap_or_default(),
+                    name: rest[0].to_string(),
+                    creation: rest[1].to_string(),
+                    attached: rest[3].to_lowercase() == "attached"
+                });
+            }
+        }
+        Ok(Some(sessions))
+    }
 }
 
 // #[get("/sessions")]
@@ -216,7 +249,6 @@ struct Session {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    dotenv::new(".").load();
     env_logger::init();
     SYSTEM.set(Arc::new(RwLock::new(System::new_all()))).unwrap();
     HttpServer::new(|| {

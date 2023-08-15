@@ -413,7 +413,6 @@ dependencies = [
  "actix-web",
  "actix-web-httpauth",
  "derive_more",
- "dotenv",
  "env_logger",
  "envy",
  "form_urlencoded",
@@ -561,12 +560,6 @@ dependencies = [
  "block-buffer",
  "crypto-common",
 ]
-
-[[package]]
-name = "dotenv"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c85f82cb889d8f1f1a6cb26fe215f6d2ac5f7af6fc4a5245a74c98f0174b231"
 
 [[package]]
 name = "either"
