@@ -71,8 +71,9 @@
 		  <div class="float-right flex ml-auto order-2 mr-9">
 			{#if !user}
 			  <button class="btn btn-xs btn-active btn-neutral hover:shadow-2xl" on:click={async () => {
-				  console.log("test")
+                  console.log("test")
 				  await fetch("http://localhost:8080/api/auth")
+                  console.log("test2")
 			  }}>Authenticate with Discord</button>
 			{:else}
 			  <img class="rounded-full h-8" alt="{user.userName}#{user.discriminator} avatar" src="https://cdn.discordapp.com/avatars/{user.id}/{user.avatar}.png">

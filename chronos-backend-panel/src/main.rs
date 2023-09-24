@@ -1,17 +1,25 @@
 use actix_web::get;
+use serde_json::json;
+use tokio::time::sleep_until;
+use crate::authenticate_token::AuthenticationGuard;
 use actix_web::middleware::Logger;
 use actix_web::web::{scope, Query};
 use actix_web::{App, HttpResponse, HttpServer, Responder};
+use actix_cors::Cors;
+mod authenticate_token;
+mod models;
+use std::ops::Add;
 use std::process::Command;
 use std::str::FromStr;
 use std::sync::OnceLock;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::thread;
+use std::time::{SystemTime, UNIX_EPOCH, Duration, Instant};
 // use api::token::token;
 use reqwest::header::{HeaderName, HeaderValue};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use sysinfo::{System, SystemExt};
+use sysinfo::{System, SystemExt, CpuExt};
 use std::sync::{Arc, RwLock};
 
 #[get("/")]
@@ -189,17 +197,36 @@ struct ServerInformation {
     used_swap: u64,
     total_swap: u64,
     cores: Vec<CPUCore>,
-    update: u64,
+    uptime: u64,
     load_average_one: f64,
     load_average_five: f64,
     load_average_fifteen: f64,
 }
 
 impl ServerInformation {
-    fn get_info() -> Self {
-        // let system = SYSTEM.get()
-        // Self { host_name: (), used_memory: (), total_memory: (), used_swap: (), total_swap: (), cores: (), update: (), load_average_one: (), load_average_five: (), load_average_fifteen: () }
-        unimplemented!();
+    fn get_info() -> Option<Self> {
+        let system = SYSTEM.get();
+        if let Some(v) = system {
+            let s = v.read().unwrap();
+            let la = s.load_average();
+            Some(Self {
+                host_name: s.host_name().unwrap_or_default(),
+                used_memory: s.used_memory(),
+                total_memory: s.total_memory(),
+                used_swap: s.used_swap(),
+                total_swap: s.total_swap(),
+                cores: s.cpus().iter().map(|x| CPUCore {
+                    frequency: x.frequency(),
+                    cpu_usage: x.cpu_usage(),
+                }).collect(),
+                uptime: s.uptime(),
+                load_average_one: la.one,
+                load_average_five: la.five,
+                load_average_fifteen: la.fifteen
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -242,20 +269,31 @@ impl Session {
     }
 }
 
-// #[get("/sessions")]
-// async fn get_sessions() -> impl Responder {
-//
-// }
+#[get("/sessions")]
+async fn get_sessions(_guard: AuthenticationGuard) -> impl Responder {
+    json!(ServerInformation::get_info())
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
     SYSTEM.set(Arc::new(RwLock::new(System::new_all()))).unwrap();
+    tokio::spawn(async move {
+        loop {
+            if let Some(v) = SYSTEM.get() {
+                v.write().unwrap().refresh_all();
+                // TODO replace with env var for time
+                sleep_until(Instant::now().add(Duration::from_secs(5)).into()).await;
+            }
+        }
+    });
     HttpServer::new(|| {
         // let oauth = claims::AuthConfig::default();
         let logger = Logger::default();
+        let cors = Cors::permissive();
         App::new()
             .wrap(logger)
+            .wrap(cors)
             .service(scope("api")
             .service(auth)
             .service(auth_callback)
